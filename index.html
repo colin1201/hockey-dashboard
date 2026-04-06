@@ -321,8 +321,14 @@ body {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 16px;
+  min-width: 0;
+  overflow: hidden;
 }
 .chart-card.full { grid-column: 1 / -1; }
+.chart-wrap {
+  position: relative;
+  width: 100%;
+}
 .chart-label {
   font-size: 0.7rem;
   text-transform: uppercase;
@@ -336,7 +342,6 @@ body {
   font-style: italic;
   margin-bottom: 12px;
 }
-.chart-card canvas { width: 100% !important; }
 
 /* Next steps */
 .next-steps {
@@ -477,17 +482,17 @@ body {
       <div class="chart-card full">
         <div class="chart-label">Sprint Speed Trend</div>
         <div class="chart-insight">Higher = faster. Target: 25+ km/h for hockey.</div>
-        <canvas id="chartSpeed" height="180"></canvas>
+        <div class="chart-wrap" style="height: 200px;"><canvas id="chartSpeed"></canvas></div>
       </div>
       <div class="chart-card">
         <div class="chart-label">Training Volume</div>
         <div class="chart-insight">Minutes per week</div>
-        <canvas id="chartVolume" height="160"></canvas>
+        <div class="chart-wrap" style="height: 180px;"><canvas id="chartVolume"></canvas></div>
       </div>
       <div class="chart-card">
         <div class="chart-label">Session Types</div>
         <div class="chart-insight">Breakdown this month</div>
-        <canvas id="chartTypes" height="160"></canvas>
+        <div class="chart-wrap" style="height: 180px;"><canvas id="chartTypes"></canvas></div>
       </div>
     </div>
   </div>
@@ -499,22 +504,22 @@ body {
       <div class="chart-card">
         <div class="chart-label">Sleep Quality</div>
         <div class="chart-insight">Higher score = better recovery</div>
-        <canvas id="chartSleep" height="180"></canvas>
+        <div class="chart-wrap" style="height: 180px;"><canvas id="chartSleep"></canvas></div>
       </div>
       <div class="chart-card">
         <div class="chart-label">Resting Heart Rate</div>
         <div class="chart-insight">Lower = fitter heart</div>
-        <canvas id="chartRHR" height="180"></canvas>
+        <div class="chart-wrap" style="height: 180px;"><canvas id="chartRHR"></canvas></div>
       </div>
       <div class="chart-card">
         <div class="chart-label">Recovery (HRV)</div>
         <div class="chart-insight">Higher = body recovering well</div>
-        <canvas id="chartHRV" height="180"></canvas>
+        <div class="chart-wrap" style="height: 180px;"><canvas id="chartHRV"></canvas></div>
       </div>
       <div class="chart-card">
         <div class="chart-label">Energy (Body Battery)</div>
         <div class="chart-insight">Net = charged minus drained</div>
-        <canvas id="chartBB" height="180"></canvas>
+        <div class="chart-wrap" style="height: 180px;"><canvas id="chartBB"></canvas></div>
       </div>
     </div>
   </div>
@@ -791,12 +796,24 @@ async function loadDashboard() {
         borderColor: ['#00e676', '#00e676', '#ff5252', '#00e676'], borderWidth: 1 },
     ]);
 
-    // Types chart
+    // Types chart (doughnut — no scales)
     const types = { Speed: 6, 'Speed+Stick': 2, Run: 2, Strength: 1 };
-    makeChart('chartTypes', 'doughnut', Object.keys(types), [
-      { data: Object.values(types), backgroundColor: ['#00e67680', '#64ffda80', '#448aff80', '#b388ff80'],
-        borderColor: ['#00e676', '#64ffda', '#448aff', '#b388ff'], borderWidth: 1 },
-    ], { chart: { scales: undefined, plugins: { legend: { display: true, position: 'bottom' } } } });
+    const typesCtx = document.getElementById('chartTypes');
+    if (typesCtx) {
+      new Chart(typesCtx, {
+        type: 'doughnut',
+        data: {
+          labels: Object.keys(types),
+          datasets: [{ data: Object.values(types),
+            backgroundColor: ['#00e67680', '#64ffda80', '#448aff80', '#b388ff80'],
+            borderColor: ['#00e676', '#64ffda', '#448aff', '#b388ff'], borderWidth: 1 }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 8, padding: 10, color: '#8b919e', font: { size: 10 } } } },
+        },
+      });
+    }
 
     // Progress charts from health data
     const dates = health.map(d => {
