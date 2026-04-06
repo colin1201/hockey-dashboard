@@ -879,6 +879,67 @@ async function loadDashboard() {
         </div>`;
     }
 
+    // HR Recovery table
+    const hrRows = Object.keys(coach).filter(k => k.startsWith('hr_recovery_mar')).map(k => coach[k]);
+    if (hrRows.length && document.getElementById('sprintFade')) {
+      const hrHTML = `
+        <div class="fade-card">
+          <h3>HR Recovery</h3>
+          <div class="insight">How fast your heart rate drops after a sprint. Bigger drop = fitter. Depends on rest duration.</div>
+          <div style="overflow-x: auto;">
+            <table class="workout-table" style="margin-bottom: 0;">
+              <thead><tr><th>Session</th><th>HR Drop</th><th>Rest periods</th><th>Note</th></tr></thead>
+              <tbody>
+                ${hrRows.map(r => {
+                  const drop = parseInt(r.status) || 0;
+                  const color = drop >= 15 ? 'var(--accent)' : drop >= 10 ? 'var(--amber)' : 'var(--text-muted)';
+                  return `<tr>
+                    <td class="date">${r.value}</td>
+                    <td style="color: ${color}; font-weight: 600;">${r.status} bpm</td>
+                    <td>${r.detail}</td>
+                    <td style="font-size: 0.75rem; color: var(--text-muted);">${r.extra}</td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+          ${coach.hr_recovery_verdict ? `<p style="font-size: 0.82rem; color: var(--text-dim); margin-top: 12px; line-height: 1.5;">${coach.hr_recovery_verdict.value}</p>` : ''}
+        </div>`;
+      document.getElementById('sprintFade').insertAdjacentHTML('afterend', hrHTML);
+    }
+
+    // Session intensity
+    const intRows = Object.keys(coach).filter(k => k.startsWith('intensity_mar')).map(k => coach[k]);
+    if (intRows.length) {
+      const zonesInsight = coach.zones_insight;
+      const intHTML = `
+        <div class="fade-card" style="margin-top: 16px;">
+          <h3>Session Intensity</h3>
+          <div class="insight">Combines duration + heart rate zones. Higher score = harder session.</div>
+          <div style="overflow-x: auto;">
+            <table class="workout-table" style="margin-bottom: 0;">
+              <thead><tr><th>Session</th><th>Score</th><th>Breakdown</th><th>Note</th></tr></thead>
+              <tbody>
+                ${intRows.map(r => {
+                  const score = parseInt(r.status) || 0;
+                  const color = score >= 100 ? 'var(--accent)' : score >= 60 ? 'var(--amber)' : 'var(--text-muted)';
+                  return `<tr>
+                    <td class="date">${r.value}</td>
+                    <td><span style="font-family: 'Anybody', sans-serif; font-weight: 700; color: ${color};">${r.status}</span></td>
+                    <td style="font-size: 0.78rem;">${r.detail}</td>
+                    <td style="font-size: 0.75rem; color: var(--text-muted);">${r.extra}</td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+          ${zonesInsight ? `<p style="font-size: 0.82rem; color: var(--text-dim); margin-top: 12px; line-height: 1.5;">${zonesInsight.value}</p>` : ''}
+        </div>`;
+      // Insert after HR recovery or sprint fade
+      const target = document.getElementById('sprintFade').nextElementSibling || document.getElementById('sprintFade');
+      target.insertAdjacentHTML('afterend', intHTML);
+    }
+
     // Coach's report sections
     // This week
     const thisWeekHTML = `
