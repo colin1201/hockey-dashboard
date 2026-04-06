@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Training Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anybody:wght@400;700;900&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0a0c10;
+  --surface: #12151c;
+  --surface2: #1a1e28;
+  --border: #252a36;
+  --text: #e8eaed;
+  --text-dim: #8b919e;
+  --text-muted: #5a6070;
+  --accent: #00e676;
+  --accent-dim: #00e67620;
+  --red: #ff5252;
+  --red-dim: #ff525220;
+  --amber: #ffc107;
+  --amber-dim: #ffc10720;
+  --orange: #ff9100;
+  --orange-dim: #ff910020;
+  --blue: #448aff;
+  --purple: #b388ff;
+  --teal: #64ffda;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Loading state */
+.loading-screen {
+  position: fixed; inset: 0;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+  transition: opacity 0.4s, visibility 0.4s;
+}
+.loading-screen.hidden { opacity: 0; visibility: hidden; }
+.loading-pulse {
+  width: 40px; height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Layout */
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px 16px 60px;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 24px 0 16px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+}
+.header h1 {
+  font-family: 'Anybody', sans-serif;
+  font-weight: 900;
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+}
+.header h1 span { color: var(--accent); }
+.header .updated {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Readiness banner */
+.readiness {
+  border-radius: 12px;
+  padding: 28px 24px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.readiness::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at top right, rgba(255,255,255,0.06) 0%, transparent 60%);
+  pointer-events: none;
+}
+.readiness.go-hard { background: linear-gradient(135deg, #1b5e20 0%, #0a2e10 100%); border: 1px solid #2e7d3260; }
+.readiness.go-moderate { background: linear-gradient(135deg, #5d4600 0%, #2e2300 100%); border: 1px solid #7c630060; }
+.readiness.go-light { background: linear-gradient(135deg, #5c3000 0%, #2e1800 100%); border: 1px solid #7c450060; }
+.readiness.rest { background: linear-gradient(135deg, #5c1010 0%, #2e0808 100%); border: 1px solid #7c2a2a60; }
+
+.readiness-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+.readiness-call {
+  font-family: 'Anybody', sans-serif;
+  font-weight: 900;
+  font-size: 2rem;
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+  line-height: 1.1;
+  margin-bottom: 12px;
+}
+.readiness.go-hard .readiness-call { color: var(--accent); }
+.readiness.go-moderate .readiness-call { color: var(--amber); }
+.readiness.go-light .readiness-call { color: var(--orange); }
+.readiness.rest .readiness-call { color: var(--red); }
+
+.readiness-reason {
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+/* Metrics strip */
+.metrics-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 32px;
+}
+.metric-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 12px;
+  text-align: center;
+}
+.metric-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.metric-value {
+  font-family: 'Anybody', sans-serif;
+  font-weight: 700;
+  font-size: 1.4rem;
+  color: var(--text);
+}
+.metric-unit {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-left: 2px;
+}
+.metric-trend { font-size: 0.7rem; margin-top: 4px; }
+.metric-trend.up { color: var(--accent); }
+.metric-trend.down { color: var(--red); }
+.metric-trend.neutral { color: var(--text-muted); }
+
+/* Navigation */
+.nav {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 28px;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.nav button {
+  background: none; border: none; color: var(--text-muted);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem; font-weight: 500;
+  padding: 10px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-color 0.2s;
+}
+.nav button:hover { color: var(--text); }
+.nav button.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* Sections */
+.section { display: none; animation: fadeIn 0.3s ease; }
+.section.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* Section headers */
+.section-title {
+  font-family: 'Anybody', sans-serif;
+  font-weight: 700;
+  font-size: 1.1rem;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  margin-bottom: 16px;
+  color: var(--text);
+}
+
+/* Coach report blocks */
+.report-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.report-block h3 {
+  font-family: 'Anybody', sans-serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+.report-block p {
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+.report-block p:last-child { margin-bottom: 0; }
+
+/* Week cards */
+.week-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-bottom: 10px;
+}
+.week-card .week-label {
+  font-family: 'Anybody', sans-serif;
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.week-card .week-subtitle {
+  font-size: 0.75rem;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.week-card p {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  line-height: 1.55;
+}
+
+/* Workout log */
+.workout-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.workout-table th {
+  text-align: left;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.workout-table td {
+  padding: 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  vertical-align: top;
+}
+.workout-table tr:last-child td { border-bottom: none; }
+.workout-table .date { color: var(--text); font-weight: 500; white-space: nowrap; }
+.workout-table .type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.type-speed { background: var(--accent-dim); color: var(--accent); }
+.type-strength { background: #b388ff20; color: var(--purple); }
+.type-run { background: #448aff20; color: var(--blue); }
+.type-stick { background: #64ffda20; color: var(--teal); }
+
+.speed-val { font-family: 'Anybody', sans-serif; font-weight: 700; color: var(--text); }
+.hr-val { color: var(--red); font-weight: 500; }
+
+/* Charts */
+.chart-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+}
+.chart-card.full { grid-column: 1 / -1; }
+.chart-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.chart-insight {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  font-style: italic;
+  margin-bottom: 12px;
+}
+.chart-card canvas { width: 100% !important; }
+
+/* Next steps */
+.next-steps {
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  padding: 20px;
+  margin-top: 24px;
+}
+.next-steps h3 {
+  font-family: 'Anybody', sans-serif;
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+.next-steps ol {
+  list-style: none;
+  counter-reset: steps;
+}
+.next-steps li {
+  counter-increment: steps;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  padding: 8px 0;
+  padding-left: 32px;
+  position: relative;
+  border-bottom: 1px solid var(--border);
+}
+.next-steps li:last-child { border-bottom: none; }
+.next-steps li::before {
+  content: counter(steps);
+  position: absolute; left: 0; top: 8px;
+  width: 22px; height: 22px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-radius: 6px;
+  font-family: 'Anybody', sans-serif;
+  font-weight: 700;
+  font-size: 0.75rem;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* Holding you back */
+.blocker {
+  display: flex;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.blocker:last-child { border-bottom: none; }
+.blocker-num {
+  flex-shrink: 0;
+  width: 28px; height: 28px;
+  background: var(--red-dim);
+  color: var(--red);
+  border-radius: 6px;
+  font-family: 'Anybody', sans-serif;
+  font-weight: 700;
+  font-size: 0.8rem;
+  display: flex; align-items: center; justify-content: center;
+}
+.blocker-text {
+  font-size: 0.88rem;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .metrics-strip { grid-template-columns: repeat(2, 1fr); }
+  .chart-grid { grid-template-columns: 1fr; }
+  .readiness-call { font-size: 1.6rem; }
+  .header h1 { font-size: 1.2rem; }
+  .workout-table { font-size: 0.75rem; }
+  .workout-table .desc { display: none; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="loading-screen" id="loader">
+  <div class="loading-pulse"></div>
+</div>
+
+<div class="container">
+  <div class="header">
+    <h1>Training <span>Dashboard</span></h1>
+    <span class="updated" id="lastUpdated"></span>
+  </div>
+
+  <!-- Readiness Banner -->
+  <div class="readiness rest" id="readiness">
+    <div class="readiness-label">Today's call</div>
+    <div class="readiness-call" id="readinessCall">Loading...</div>
+    <div class="readiness-reason" id="readinessReason"></div>
+  </div>
+
+  <!-- Key Metrics -->
+  <div class="metrics-strip" id="metricsStrip"></div>
+
+  <!-- Tab Navigation -->
+  <div class="nav" id="nav">
+    <button class="active" data-tab="coach">Coach's Report</button>
+    <button data-tab="training">Training</button>
+    <button data-tab="progress">Progress</button>
+  </div>
+
+  <!-- Coach's Report Section -->
+  <div class="section active" id="tab-coach">
+    <div id="coachThisWeek"></div>
+    <div id="coachMonthReview"></div>
+    <div id="coachBlockers"></div>
+    <div id="coachWeekly"></div>
+    <div id="coachNextSteps"></div>
+  </div>
+
+  <!-- Training Section -->
+  <div class="section" id="tab-training">
+    <div class="section-title">Workout Log</div>
+    <div style="overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); margin-bottom: 24px;">
+      <table class="workout-table" id="workoutTable">
+        <thead><tr><th>Date</th><th>Type</th><th class="desc">Details</th><th>Time</th><th>Speed</th><th>HR</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div id="trainingAnalysis"></div>
+
+    <div class="section-title" style="margin-top: 28px;">Performance Charts</div>
+    <div class="chart-grid">
+      <div class="chart-card full">
+        <div class="chart-label">Sprint Speed Trend</div>
+        <div class="chart-insight">Higher = faster. Target: 25+ km/h for hockey.</div>
+        <canvas id="chartSpeed" height="180"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-label">Training Volume</div>
+        <div class="chart-insight">Minutes per week</div>
+        <canvas id="chartVolume" height="160"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-label">Session Types</div>
+        <div class="chart-insight">Breakdown this month</div>
+        <canvas id="chartTypes" height="160"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Progress Section -->
+  <div class="section" id="tab-progress">
+    <div class="section-title">Body Metrics</div>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-label">Sleep Quality</div>
+        <div class="chart-insight">Higher score = better recovery</div>
+        <canvas id="chartSleep" height="180"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-label">Resting Heart Rate</div>
+        <div class="chart-insight">Lower = fitter heart</div>
+        <canvas id="chartRHR" height="180"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-label">Recovery (HRV)</div>
+        <div class="chart-insight">Higher = body recovering well</div>
+        <canvas id="chartHRV" height="180"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-label">Energy (Body Battery)</div>
+        <div class="chart-insight">Net = charged minus drained</div>
+        <canvas id="chartBB" height="180"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SHEET_ID = '1E6Hq467pmleFvvDOQfRsgX2gKO2KdbP5I8OrnscT_qo';
+// Sheet GIDs: Dashboard=2131102463, Daily Health=0, Activities=1308062237
+const GIDS = { dashboard: 2131102463, health: 0, activities: 1308062237 };
+
+async function fetchSheetCSV(gid) {
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
+  const resp = await fetch(url);
+  const text = await resp.text();
+  return parseCSV(text);
+}
+
+function parseCSV(text) {
+  const rows = [];
+  let current = [];
+  let inQuote = false;
+  let field = '';
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuote) {
+      if (ch === '"' && text[i + 1] === '"') { field += '"'; i++; }
+      else if (ch === '"') { inQuote = false; }
+      else { field += ch; }
+    } else {
+      if (ch === '"') { inQuote = true; }
+      else if (ch === ',') { current.push(field); field = ''; }
+      else if (ch === '\n' || (ch === '\r' && text[i + 1] === '\n')) {
+        if (ch === '\r') i++;
+        current.push(field); field = '';
+        rows.push(current); current = [];
+      } else { field += ch; }
+    }
+  }
+  if (field || current.length) { current.push(field); rows.push(current); }
+  return rows;
+}
+
+// Chart.js defaults
+Chart.defaults.color = '#8b919e';
+Chart.defaults.borderColor = '#252a36';
+Chart.defaults.font.family = "'DM Sans', sans-serif";
+Chart.defaults.font.size = 11;
+
+function makeChart(id, type, labels, datasets, opts = {}) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  return new Chart(ctx, {
+    type,
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: datasets.length > 1, labels: { boxWidth: 8, padding: 12, font: { size: 10 } } },
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { maxRotation: 45, font: { size: 9 } } },
+        y: { grid: { color: '#1a1e28' }, ticks: { font: { size: 9 } }, ...opts.yAxis },
+        ...(opts.y1 ? { y1: { position: 'right', grid: { display: false }, ticks: { font: { size: 9 } }, ...opts.y1 } } : {}),
+      },
+      elements: {
+        point: { radius: 3, hoverRadius: 5 },
+        line: { tension: 0.3, borderWidth: 2 },
+      },
+      ...opts.chart,
+    },
+  });
+}
+
+// Tab navigation
+document.getElementById('nav').addEventListener('click', e => {
+  if (e.target.tagName !== 'BUTTON') return;
+  document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  e.target.classList.add('active');
+  document.getElementById('tab-' + e.target.dataset.tab).classList.add('active');
+});
+
+function getTypeClass(type) {
+  const t = type.toLowerCase();
+  if (t.includes('stick')) return 'type-stick';
+  if (t.includes('speed')) return 'type-speed';
+  if (t.includes('strength')) return 'type-strength';
+  return 'type-run';
+}
+
+async function loadDashboard() {
+  try {
+    const [dashRows, healthRows, activityRows] = await Promise.all([
+      fetchSheetCSV(GIDS.dashboard),
+      fetchSheetCSV(GIDS.health),
+      fetchSheetCSV(GIDS.activities),
+    ]);
+
+    // Parse dashboard text
+    const getText = (row) => (dashRows[row - 1] && dashRows[row - 1][0]) || '';
+    const getRow = (row) => dashRows[row - 1] || [];
+
+    // Readiness
+    const call = getText(5);
+    const reason = getText(6);
+    const el = document.getElementById('readiness');
+    document.getElementById('readinessCall').textContent = call;
+    document.getElementById('readinessReason').textContent = reason;
+    el.className = 'readiness ' + (
+      call.includes('HARD') ? 'go-hard' :
+      call.includes('MODERATE') ? 'go-moderate' :
+      call.includes('LIGHT') ? 'go-light' : 'rest'
+    );
+
+    // Updated date
+    document.getElementById('lastUpdated').textContent = getText(2);
+
+    // Parse health data
+    const healthHeaders = healthRows[0] || [];
+    const health = healthRows.slice(1).map(row => {
+      const obj = {};
+      healthHeaders.forEach((h, i) => obj[h] = row[i] || '');
+      return obj;
+    }).filter(d => d['Date']);
+
+    // Key metrics (latest day with data)
+    const latest = [...health].reverse().find(d => d['HRV Nightly Avg'] || d['Sleep Score']);
+    if (latest) {
+      const prevWeek = health.slice(0, Math.max(0, health.length - 7));
+      const prevHRV = prevWeek.filter(d => d['HRV Nightly Avg']).map(d => +d['HRV Nightly Avg']);
+      const avgPrevHRV = prevHRV.length ? (prevHRV.reduce((a,b) => a+b, 0) / prevHRV.length).toFixed(0) : null;
+
+      const metrics = [
+        { label: 'HRV', value: latest['HRV Nightly Avg'] || '-', unit: 'ms',
+          trend: avgPrevHRV && latest['HRV Nightly Avg'] ? (+latest['HRV Nightly Avg'] > +avgPrevHRV ? 'up' : +latest['HRV Nightly Avg'] < +avgPrevHRV ? 'down' : 'neutral') : 'neutral',
+          trendText: avgPrevHRV ? `avg ${avgPrevHRV}` : '' },
+        { label: 'Sleep', value: latest['Sleep Score'] || '-', unit: 'score',
+          trend: +latest['Sleep Score'] >= 75 ? 'up' : +latest['Sleep Score'] >= 65 ? 'neutral' : 'down',
+          trendText: latest['Sleep Hrs'] ? `${latest['Sleep Hrs']}h` : '' },
+        { label: 'Rest HR', value: latest['Resting HR'] || '-', unit: 'bpm',
+          trend: +latest['Resting HR'] <= 47 ? 'up' : +latest['Resting HR'] <= 52 ? 'neutral' : 'down',
+          trendText: '' },
+        { label: 'Battery', value: (latest['Body Battery Charged'] && latest['Body Battery Drained']) ?
+            (+latest['Body Battery Charged'] - +latest['Body Battery Drained']) > 0 ? '+' + (+latest['Body Battery Charged'] - +latest['Body Battery Drained']) :
+            (+latest['Body Battery Charged'] - +latest['Body Battery Drained']) : '-',
+          unit: 'net',
+          trend: (latest['Body Battery Charged'] && latest['Body Battery Drained']) ?
+            (+latest['Body Battery Charged'] - +latest['Body Battery Drained']) > 0 ? 'up' : 'down' : 'neutral',
+          trendText: '' },
+      ];
+
+      const strip = document.getElementById('metricsStrip');
+      strip.innerHTML = metrics.map(m => `
+        <div class="metric-card">
+          <div class="metric-label">${m.label}</div>
+          <div class="metric-value">${m.value}<span class="metric-unit">${m.unit}</span></div>
+          ${m.trendText ? `<div class="metric-trend ${m.trend}">${m.trendText}</div>` : ''}
+        </div>
+      `).join('');
+    }
+
+    // Coach's report sections
+    // This week
+    const thisWeekHTML = `
+      <div class="report-block">
+        <h3>This Week</h3>
+        <p>${getText(9)}</p>
+        ${getText(10) ? `<p>${getText(10)}</p>` : ''}
+      </div>`;
+    document.getElementById('coachThisWeek').innerHTML = thisWeekHTML;
+
+    // Month in review
+    const monthSections = [
+      { title: 'Sleep', rows: [15, 16] },
+      { title: 'Recovery', rows: [19, 20] },
+      { title: 'Training', rows: [23, 24] },
+    ];
+    document.getElementById('coachMonthReview').innerHTML = `
+      <div class="section-title" style="margin-top: 20px;">Month in Review</div>
+      ${monthSections.map(s => `
+        <div class="report-block">
+          <h3>${s.title}</h3>
+          ${s.rows.map(r => getText(r) ? `<p>${getText(r)}</p>` : '').join('')}
+        </div>
+      `).join('')}`;
+
+    // Blockers
+    const blockers = [getText(27), getText(28), getText(29)].filter(Boolean);
+    document.getElementById('coachBlockers').innerHTML = blockers.length ? `
+      <div class="report-block">
+        <h3>What's Holding You Back</h3>
+        ${blockers.map((b, i) => `
+          <div class="blocker">
+            <div class="blocker-num">${i + 1}</div>
+            <div class="blocker-text">${b.replace(/^\d+\.\s*/, '')}</div>
+          </div>
+        `).join('')}
+      </div>` : '';
+
+    // Weekly breakdown
+    const weeks = [
+      { label: getText(33), body: getText(34) },
+      { label: getText(36), body: getText(37) },
+      { label: getText(39), body: getText(40) },
+      { label: getText(42), body: getText(43) },
+    ].filter(w => w.label);
+
+    document.getElementById('coachWeekly').innerHTML = weeks.length ? `
+      <div class="section-title" style="margin-top: 20px;">Weekly Breakdown</div>
+      ${weeks.map(w => {
+        const parts = w.label.split(':');
+        return `<div class="week-card">
+          <div class="week-label">${parts[0]}</div>
+          ${parts[1] ? `<div class="week-subtitle">${parts[1].trim()}</div>` : ''}
+          <p>${w.body}</p>
+        </div>`;
+      }).join('')}` : '';
+
+    // Next steps
+    const steps = [getText(46), getText(47), getText(48)].filter(Boolean);
+    document.getElementById('coachNextSteps').innerHTML = steps.length ? `
+      <div class="next-steps">
+        <h3>Next Steps</h3>
+        <ol>${steps.map(s => `<li>${s.replace(/^\d+\.\s*/, '')}</li>`).join('')}</ol>
+      </div>` : '';
+
+    // Training tab - workout table
+    const workoutRows = [];
+    for (let i = 54; i <= 64; i++) {
+      const row = getRow(i);
+      if (row.length >= 4) workoutRows.push(row);
+    }
+    const tbody = document.querySelector('#workoutTable tbody');
+    tbody.innerHTML = workoutRows.map(r => {
+      const typeClass = getTypeClass(r[1] || '');
+      return `<tr>
+        <td class="date">${r[0]}</td>
+        <td><span class="type-badge ${typeClass}">${r[1]}</span></td>
+        <td class="desc">${r[2] || ''}</td>
+        <td>${r[3] || ''}</td>
+        <td>${r[4] && r[4] !== '-' ? `<span class="speed-val">${r[4]}</span>` : '-'}</td>
+        <td>${r[5] ? `<span class="hr-val">${r[5]}</span>` : '-'}</td>
+      </tr>`;
+    }).join('');
+
+    // Training analysis
+    const analysisBlocks = [
+      { title: 'Speed Trend', text: getText(67) },
+      { title: 'What The Numbers Say', text: getText(70) },
+      { title: 'Volume', text: getText(73) },
+      { title: 'Strength', text: getText(76) },
+    ].filter(b => b.text);
+
+    document.getElementById('trainingAnalysis').innerHTML = analysisBlocks.map(b => `
+      <div class="report-block">
+        <h3>${b.title}</h3>
+        <p>${b.text}</p>
+      </div>
+    `).join('');
+
+    // Speed chart
+    const speedDates = ['Mar 10', 'Mar 12', 'Mar 17', 'Mar 20', 'Mar 27', 'Mar 31'];
+    const topSpeeds = [25.2, 25.2, 28.8, 24.3, 20.6, 22.2];
+    const avgSpeeds = [20.6, 21.4, 20.7, 20.6, 15.9, 18.5];
+    makeChart('chartSpeed', 'line', speedDates, [
+      { label: 'Top Speed', data: topSpeeds, borderColor: '#ff5252', backgroundColor: '#ff525230', fill: true },
+      { label: 'Avg Sprint', data: avgSpeeds, borderColor: '#448aff', backgroundColor: '#448aff30', fill: true },
+    ]);
+
+    // Volume chart
+    makeChart('chartVolume', 'bar', ['Wk 1', 'Wk 2', 'Wk 3', 'Wk 4'], [
+      { label: 'Minutes', data: [104, 161, 32, 116], backgroundColor: ['#00e67680', '#00e67680', '#ff525280', '#00e67680'],
+        borderColor: ['#00e676', '#00e676', '#ff5252', '#00e676'], borderWidth: 1 },
+    ]);
+
+    // Types chart
+    const types = { Speed: 6, 'Speed+Stick': 2, Run: 2, Strength: 1 };
+    makeChart('chartTypes', 'doughnut', Object.keys(types), [
+      { data: Object.values(types), backgroundColor: ['#00e67680', '#64ffda80', '#448aff80', '#b388ff80'],
+        borderColor: ['#00e676', '#64ffda', '#448aff', '#b388ff'], borderWidth: 1 },
+    ], { chart: { scales: undefined, plugins: { legend: { display: true, position: 'bottom' } } } });
+
+    // Progress charts from health data
+    const dates = health.map(d => {
+      const parts = d.Date.split('-');
+      return parts[1] + '/' + parts[2];
+    });
+
+    const sleepScores = health.map(d => +d['Sleep Score'] || null);
+    makeChart('chartSleep', 'line', dates, [
+      { label: 'Sleep Score', data: sleepScores, borderColor: '#448aff', backgroundColor: '#448aff20', fill: true },
+    ]);
+
+    const rhrs = health.map(d => +d['Resting HR'] || null);
+    makeChart('chartRHR', 'line', dates, [
+      { label: 'Resting HR', data: rhrs, borderColor: '#ff5252', backgroundColor: '#ff525220', fill: true },
+    ]);
+
+    const hrvs = health.map(d => +d['HRV Nightly Avg'] || null);
+    makeChart('chartHRV', 'line', dates, [
+      { label: 'HRV', data: hrvs, borderColor: '#b388ff', backgroundColor: '#b388ff20', fill: true },
+    ]);
+
+    const bbNet = health.map(d => {
+      if (d['Body Battery Charged'] && d['Body Battery Drained']) {
+        return +d['Body Battery Charged'] - +d['Body Battery Drained'];
+      }
+      return null;
+    });
+    makeChart('chartBB', 'bar', dates, [
+      { label: 'Net', data: bbNet,
+        backgroundColor: bbNet.map(v => v >= 0 ? '#00e67660' : '#ff525260'),
+        borderColor: bbNet.map(v => v >= 0 ? '#00e676' : '#ff5252'),
+        borderWidth: 1 },
+    ]);
+
+    // Hide loader
+    document.getElementById('loader').classList.add('hidden');
+
+  } catch (err) {
+    console.error('Failed to load dashboard:', err);
+    document.getElementById('readinessCall').textContent = 'Error loading data';
+    document.getElementById('readinessReason').textContent = err.message;
+    document.getElementById('loader').classList.add('hidden');
+  }
+}
+
+loadDashboard();
+</script>
+</body>
+</html>
