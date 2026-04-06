@@ -308,6 +308,13 @@ body {
 
 .speed-val { font-family: 'Anybody', sans-serif; font-weight: 700; color: var(--text); }
 .hr-val { color: var(--red); font-weight: 500; }
+.coach-take {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  line-height: 1.45;
+  max-width: 280px;
+  min-width: 180px;
+}
 
 /* Charts */
 .chart-grid {
@@ -592,7 +599,7 @@ body {
     <div class="section-title">Workout Log</div>
     <div style="overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); margin-bottom: 24px;">
       <table class="workout-table" id="workoutTable">
-        <thead><tr><th>Date</th><th>Type</th><th class="desc">Details</th><th>Time</th><th>Speed</th><th>HR</th></tr></thead>
+        <thead><tr><th>Date</th><th>Type</th><th class="desc">Details</th><th>Time</th><th>Speed</th><th>HR</th><th>Coach's Take</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -1021,6 +1028,7 @@ async function loadDashboard() {
         <td>${r[3] || ''}</td>
         <td>${r[4] && r[4] !== '-' ? `<span class="speed-val">${r[4]}</span>` : '-'}</td>
         <td>${r[5] ? `<span class="hr-val">${r[5]}</span>` : '-'}</td>
+        <td class="coach-take">${r[6] || ''}</td>
       </tr>`;
     }).join('');
 
