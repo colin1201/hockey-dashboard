@@ -1337,7 +1337,9 @@ async function loadDashboard() {
     }
 
     // Session intensity
-    const intRows = Object.keys(coach).filter(k => k.startsWith('intensity_mar')).map(k => coach[k]);
+    const intRows = Object.keys(coach)
+      .filter(k => k.startsWith('intensity_') && k !== 'intensity_header')
+      .map(k => coach[k]);
     if (intRows.length) {
       const zonesInsight = coach.zones_insight;
       const intHTML = `
