@@ -1548,15 +1548,15 @@ async function loadDashboard() {
       const parts = a['Date'].split('-');
       return parts[1] + '/' + parts[2];
     });
-    const topSpeeds = runActivities.map(a => +a['Max Speed Kmh'] || null);
+    const perfTopSpeeds = runActivities.map(a => +a['Max Speed Kmh'] || null);
     makeChart('chartTopSpeed', 'line', runDates, [
-      { label: 'Top Speed (km/h)', data: topSpeeds,
+      { label: 'Top Speed (km/h)', data: perfTopSpeeds,
         borderColor: '#00e676', backgroundColor: '#00e67620', fill: true, tension: 0.2 },
     ]);
 
-    const distances = runActivities.map(a => +a['Distance Km'] || null);
+    const perfDistances = runActivities.map(a => +a['Distance Km'] || null);
     makeChart('chartDistance', 'bar', runDates, [
-      { label: 'Distance (km)', data: distances,
+      { label: 'Distance (km)', data: perfDistances,
         backgroundColor: '#64ffda60', borderColor: '#64ffda', borderWidth: 1 },
     ]);
 
