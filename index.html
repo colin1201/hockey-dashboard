@@ -894,13 +894,51 @@ body {
         <div class="chart-wrap" style="height: 180px;"><canvas id="chartBB"></canvas></div>
       </div>
     </div>
+
+    <div class="section-title" style="margin-top: 32px;">Performance</div>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-label">Top Speed per Session</div>
+        <div class="chart-insight">Max speed in km/h. Running activities only. Carpark sprints may have GPS noise.</div>
+        <div class="chart-wrap" style="height: 180px;"><canvas id="chartTopSpeed"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-label">Session Distance</div>
+        <div class="chart-insight">Total distance per running session. Carpark = walk-back included.</div>
+        <div class="chart-wrap" style="height: 180px;"><canvas id="chartDistance"></canvas></div>
+      </div>
+    </div>
+
+    <div class="section-title" style="margin-top: 32px;">Strength Progression</div>
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-label">Goblet Squat</div>
+        <div class="chart-insight">Top set weight (kg). Higher = stronger primary lift.</div>
+        <div class="chart-wrap" style="height: 180px;"><canvas id="chartSquat"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-label">Romanian Deadlift</div>
+        <div class="chart-insight">Top set weight per hand (kg). Posterior chain.</div>
+        <div class="chart-wrap" style="height: 180px;"><canvas id="chartRDL"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-label">Dumbbell Bench Press</div>
+        <div class="chart-insight">Top set weight per hand (kg). Upper body push.</div>
+        <div class="chart-wrap" style="height: 180px;"><canvas id="chartBench"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-label">Dumbbell Row</div>
+        <div class="chart-insight">Top set weight per arm (kg). Upper body pull.</div>
+        <div class="chart-wrap" style="height: 180px;"><canvas id="chartRow"></canvas></div>
+      </div>
+    </div>
   </div>
 </div>
 
 <script>
 const SHEET_ID = '1E6Hq467pmleFvvDOQfRsgX2gKO2KdbP5I8OrnscT_qo';
 // Sheet GIDs: Dashboard=2131102463, Daily Health=0, Activities=1308062237
-const GIDS = { dashboard: 2131102463, health: 0, activities: 1308062237, coach: 166212380 };
+const GIDS = { dashboard: 2131102463, health: 0, activities: 1308062237, coach: 166212380, strength: 969934520 };
 
 async function fetchSheetCSV(gid) {
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
@@ -1107,11 +1145,12 @@ function renderPlan() {
 
 async function loadDashboard() {
   try {
-    const [dashRows, healthRows, activityRows, coachRows] = await Promise.all([
+    const [dashRows, healthRows, activityRows, coachRows, strengthRows] = await Promise.all([
       fetchSheetCSV(GIDS.dashboard),
       fetchSheetCSV(GIDS.health),
       fetchSheetCSV(GIDS.activities),
       fetchSheetCSV(GIDS.coach),
+      fetchSheetCSV(GIDS.strength),
     ]);
 
     // Parse coach data into key-value map
@@ -1221,10 +1260,11 @@ async function loadDashboard() {
         </div>`;
     }
 
-    // Sprint fade
-    const fadeRows = Object.keys(coach).filter(k => k.startsWith('fade_mar')).map(k => coach[k]);
+    // Sprint fade — show all date-prefixed fade rows (mar/apr/may), skip header/verdict
+    const fadeRows = Object.keys(coach)
+      .filter(k => k.startsWith('fade_') && !['fade_header', 'fade_verdict'].includes(k))
+      .map(k => coach[k]);
     if (fadeRows.length) {
-      const maxSpeed = Math.max(...fadeRows.map(r => Math.max(parseFloat(r.status) || 0, parseFloat(r.detail) || 0)));
       document.getElementById('sprintFade').innerHTML = `
         <div class="fade-card">
           <h3>Sprint Fade</h3>
@@ -1235,6 +1275,13 @@ async function loadDashboard() {
               <tbody>
                 ${fadeRows.map(r => {
                   const fade = r.extra || '';
+                  const isNA = (r.status || '').toLowerCase() === 'n/a';
+                  if (isNA) {
+                    return `<tr>
+                      <td class="date">${r.value}</td>
+                      <td colspan="3" style="color: var(--text-muted); font-style: italic;">${fade || 'No fade data this session'}</td>
+                    </tr>`;
+                  }
                   const isPositive = fade.startsWith('+');
                   const color = isPositive ? 'var(--accent)' : fade.startsWith('-') && parseInt(fade) < -10 ? 'var(--red)' : 'var(--amber)';
                   return `<tr>
@@ -1251,8 +1298,10 @@ async function loadDashboard() {
         </div>`;
     }
 
-    // HR Recovery table
-    const hrRows = Object.keys(coach).filter(k => k.startsWith('hr_recovery_mar')).map(k => coach[k]);
+    // HR Recovery table — show all date-prefixed rows, skip header/verdict
+    const hrRows = Object.keys(coach)
+      .filter(k => k.startsWith('hr_recovery_') && !['hr_recovery_header', 'hr_recovery_verdict'].includes(k))
+      .map(k => coach[k]);
     if (hrRows.length && document.getElementById('sprintFade')) {
       const hrHTML = `
         <div class="fade-card">
@@ -1263,6 +1312,13 @@ async function loadDashboard() {
               <thead><tr><th>Session</th><th>HR Drop</th><th>Rest periods</th><th>Note</th></tr></thead>
               <tbody>
                 ${hrRows.map(r => {
+                  const isNA = (r.status || '').toLowerCase() === 'n/a';
+                  if (isNA) {
+                    return `<tr>
+                      <td class="date">${r.value}</td>
+                      <td colspan="3" style="color: var(--text-muted); font-style: italic;">${r.extra || 'No HR recovery data this session'}</td>
+                    </tr>`;
+                  }
                   const drop = parseInt(r.status) || 0;
                   const color = drop >= 15 ? 'var(--accent)' : drop >= 10 ? 'var(--amber)' : 'var(--text-muted)';
                   return `<tr>
@@ -1479,6 +1535,59 @@ async function loadDashboard() {
         borderColor: bbNet.map(v => v >= 0 ? '#00e676' : '#ff5252'),
         borderWidth: 1 },
     ]);
+
+    // Performance charts: Top Speed + Distance per running activity
+    const activityHeaders = activityRows[0] || [];
+    const runActivities = activityRows.slice(1).map(row => {
+      const obj = {};
+      activityHeaders.forEach((h, i) => obj[h] = row[i] || '');
+      return obj;
+    }).filter(a => (a['Type'] || '').includes('running') && a['Date']);
+
+    const runDates = runActivities.map(a => {
+      const parts = a['Date'].split('-');
+      return parts[1] + '/' + parts[2];
+    });
+    const topSpeeds = runActivities.map(a => +a['Max Speed Kmh'] || null);
+    makeChart('chartTopSpeed', 'line', runDates, [
+      { label: 'Top Speed (km/h)', data: topSpeeds,
+        borderColor: '#00e676', backgroundColor: '#00e67620', fill: true, tension: 0.2 },
+    ]);
+
+    const distances = runActivities.map(a => +a['Distance Km'] || null);
+    makeChart('chartDistance', 'bar', runDates, [
+      { label: 'Distance (km)', data: distances,
+        backgroundColor: '#64ffda60', borderColor: '#64ffda', borderWidth: 1 },
+    ]);
+
+    // Strength progression: build chart per exercise
+    const strengthHeaders = strengthRows[0] || [];
+    const strengthEntries = strengthRows.slice(1).map(row => {
+      const obj = {};
+      strengthHeaders.forEach((h, i) => obj[h] = row[i] || '');
+      return obj;
+    }).filter(s => s['Date'] && s['Exercise']);
+
+    function buildStrengthChart(canvasId, exerciseMatchers, color) {
+      const matched = strengthEntries.filter(s =>
+        exerciseMatchers.some(m => s['Exercise'].toLowerCase().includes(m.toLowerCase()))
+      );
+      const sLabels = matched.map(s => {
+        const parts = s['Date'].split('-');
+        return parts[1] + '/' + parts[2];
+      });
+      const sWeights = matched.map(s => +s['Weight (kg)'] || null);
+      makeChart(canvasId, 'line', sLabels, [
+        { label: 'Top set (kg)', data: sWeights,
+          borderColor: color, backgroundColor: color + '20', fill: true,
+          pointRadius: 5, tension: 0.1 },
+      ]);
+    }
+
+    buildStrengthChart('chartSquat', ['Goblet Squat', 'Squat'], '#ff9800');
+    buildStrengthChart('chartRDL', ['Romanian Deadlift', 'RDL', 'Deadlift'], '#b388ff');
+    buildStrengthChart('chartBench', ['Bench Press'], '#448aff');
+    buildStrengthChart('chartRow', ['Dumbbell Row', 'Row'], '#f06292');
 
     // Hide loader
     document.getElementById('loader').classList.add('hidden');
