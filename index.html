@@ -1580,9 +1580,10 @@ async function loadDashboard() {
 
     // Volume chart — computed from Activities, last 6 weeks, labeled by week-start date
     const weekMap = {};
+    const _vcHeaders = activityRows[0] || [];
     activityRows.slice(1).forEach(row => {
       const obj = {};
-      activityHeaders.forEach((h, i) => obj[h] = row[i] || '');
+      _vcHeaders.forEach((h, i) => obj[h] = row[i] || '');
       const dateStr = obj['Date'];
       const dur = +obj['Duration Min'] || 0;
       if (!dateStr || !dur) return;
