@@ -1029,6 +1029,44 @@ function parseCSV(text) {
   return rows;
 }
 
+// Date formatting helpers
+const MONTHS_ABBREV = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function fmtDate(input) {
+  if (!input) return '';
+  // ISO YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}/.test(input)) {
+    const [y, m, d] = input.split('-');
+    return `${parseInt(d)} ${MONTHS_ABBREV[parseInt(m)-1]} ${y.slice(2)}`;
+  }
+  // "Mar 10" or "March 10" — infer 2026
+  const match = input.trim().match(/^(\w+)\s+(\d+)/);
+  if (match) {
+    const mIdx = MONTHS_ABBREV.findIndex(mn => mn.toLowerCase() === match[1].slice(0,3).toLowerCase());
+    if (mIdx >= 0) return `${parseInt(match[2])} ${MONTHS_ABBREV[mIdx]} 26`;
+  }
+  return input;
+}
+
+// Interpretation helpers
+function fadeNote(fadeStr) {
+  if (!fadeStr) return '';
+  let v = parseFloat(String(fadeStr).replace('%','').replace(/^\+/, ''));
+  if (isNaN(v)) return '';
+  if (Math.abs(v) > 0 && Math.abs(v) < 1) v = v * 100;
+  if (v <= -10) return 'Poor — sprints fading hard';
+  if (v < 0) return 'Mild fade — building';
+  if (v < 3) return 'Flat — consistent';
+  return 'Faster late — green sign';
+}
+function hrDropNote(dropStr, restStr) {
+  const drop = parseInt(dropStr) || 0;
+  const isShort = (restStr || '').includes('15-30');
+  if (isShort) return 'Short rest — small drop expected';
+  if (drop >= 15) return 'Strong recovery — fit heart';
+  if (drop >= 10) return 'Moderate — building';
+  return 'Slow recovery — gap';
+}
+
 // Chart.js defaults
 Chart.defaults.color = '#8b919e';
 Chart.defaults.borderColor = '#252a36';
@@ -1328,24 +1366,28 @@ async function loadDashboard() {
           <div class="insight">Compares your speed at the start vs end of each session. Less fade = better conditioning.</div>
           <div style="overflow-x: auto;">
             <table class="workout-table" style="margin-bottom: 0;">
-              <thead><tr><th>Session</th><th>First 3 sprints</th><th>Last 3 sprints</th><th>Fade</th></tr></thead>
+              <thead><tr><th>Session</th><th>First 3 sprints</th><th>Last 3 sprints</th><th>Fade</th><th>Coach's Take</th></tr></thead>
               <tbody>
                 ${fadeRows.map(r => {
                   const fade = r.extra || '';
                   const isNA = (r.status || '').toLowerCase() === 'n/a';
                   if (isNA) {
                     return `<tr>
-                      <td class="date">${r.value}</td>
-                      <td colspan="3" style="color: var(--text-muted); font-style: italic;">${fade || 'No fade data this session'}</td>
+                      <td class="date">${fmtDate(r.value)}</td>
+                      <td colspan="4" style="color: var(--text-muted); font-style: italic;">${fade || 'No fade data this session'}</td>
                     </tr>`;
                   }
-                  const isPositive = fade.startsWith('+');
-                  const color = isPositive ? 'var(--accent)' : fade.startsWith('-') && parseInt(fade) < -10 ? 'var(--red)' : 'var(--amber)';
+                  // Parse fade value robustly (handles "+6%", "-17%", "0.04")
+                  let fadeNum = parseFloat(String(fade).replace('%','').replace(/^\+/, ''));
+                  if (isNaN(fadeNum)) fadeNum = 0;
+                  if (Math.abs(fadeNum) > 0 && Math.abs(fadeNum) < 1) fadeNum = fadeNum * 100;
+                  const color = fadeNum > 3 ? 'var(--accent)' : fadeNum < -10 ? 'var(--red)' : 'var(--amber)';
                   return `<tr>
-                    <td class="date">${r.value}</td>
+                    <td class="date">${fmtDate(r.value)}</td>
                     <td><span class="speed-val">${r.status}</span> km/h</td>
                     <td><span class="speed-val">${r.detail}</span> km/h</td>
                     <td style="color: ${color}; font-weight: 600;">${fade}</td>
+                    <td style="font-size: 0.78rem; color: var(--text-dim);">${fadeNote(fade)}</td>
                   </tr>`;
                 }).join('')}
               </tbody>
@@ -1366,23 +1408,23 @@ async function loadDashboard() {
           <div class="insight">How fast your heart rate drops after a sprint. Bigger drop = fitter. Depends on rest duration.</div>
           <div style="overflow-x: auto;">
             <table class="workout-table" style="margin-bottom: 0;">
-              <thead><tr><th>Session</th><th>HR Drop</th><th>Rest periods</th><th>Note</th></tr></thead>
+              <thead><tr><th>Session</th><th>HR Drop</th><th>Rest periods</th><th>Coach's Take</th></tr></thead>
               <tbody>
                 ${hrRows.map(r => {
                   const isNA = (r.status || '').toLowerCase() === 'n/a';
                   if (isNA) {
                     return `<tr>
-                      <td class="date">${r.value}</td>
+                      <td class="date">${fmtDate(r.value)}</td>
                       <td colspan="3" style="color: var(--text-muted); font-style: italic;">${r.extra || 'No HR recovery data this session'}</td>
                     </tr>`;
                   }
                   const drop = parseInt(r.status) || 0;
                   const color = drop >= 15 ? 'var(--accent)' : drop >= 10 ? 'var(--amber)' : 'var(--text-muted)';
                   return `<tr>
-                    <td class="date">${r.value}</td>
+                    <td class="date">${fmtDate(r.value)}</td>
                     <td style="color: ${color}; font-weight: 600;">${r.status} bpm</td>
                     <td>${r.detail}</td>
-                    <td style="font-size: 0.75rem; color: var(--text-muted);">${r.extra}</td>
+                    <td style="font-size: 0.78rem; color: var(--text-dim);">${hrDropNote(r.status, r.extra)}</td>
                   </tr>`;
                 }).join('')}
               </tbody>
@@ -1411,10 +1453,10 @@ async function loadDashboard() {
                   const score = parseInt(r.status) || 0;
                   const color = score >= 100 ? 'var(--accent)' : score >= 60 ? 'var(--amber)' : 'var(--text-muted)';
                   return `<tr>
-                    <td class="date">${r.value}</td>
+                    <td class="date">${fmtDate(r.value)}</td>
                     <td><span style="font-family: 'Anybody', sans-serif; font-weight: 700; color: ${color};">${r.status}</span></td>
                     <td style="font-size: 0.78rem;">${r.detail}</td>
-                    <td style="font-size: 0.75rem; color: var(--text-muted);">${r.extra}</td>
+                    <td style="font-size: 0.78rem; color: var(--text-dim);">${r.extra}</td>
                   </tr>`;
                 }).join('')}
               </tbody>
@@ -1502,7 +1544,7 @@ async function loadDashboard() {
     tbody.innerHTML = workoutRows.map(r => {
       const typeClass = getTypeClass(r[1] || '');
       return `<tr>
-        <td class="date">${r[0]}</td>
+        <td class="date">${fmtDate(r[0])}</td>
         <td><span class="type-badge ${typeClass}">${r[1]}</span></td>
         <td class="desc">${r[2] || ''}</td>
         <td>${r[3] || ''}</td>
@@ -1536,10 +1578,29 @@ async function loadDashboard() {
       { label: 'Avg Sprint', data: avgSpeeds, borderColor: '#448aff', backgroundColor: '#448aff30', fill: true },
     ]);
 
-    // Volume chart
-    makeChart('chartVolume', 'bar', ['Wk 1', 'Wk 2', 'Wk 3', 'Wk 4'], [
-      { label: 'Minutes', data: [104, 161, 32, 116], backgroundColor: ['#00e67680', '#00e67680', '#ff525280', '#00e67680'],
-        borderColor: ['#00e676', '#00e676', '#ff5252', '#00e676'], borderWidth: 1 },
+    // Volume chart — computed from Activities, last 6 weeks, labeled by week-start date
+    const weekMap = {};
+    activityRows.slice(1).forEach(row => {
+      const obj = {};
+      activityHeaders.forEach((h, i) => obj[h] = row[i] || '');
+      const dateStr = obj['Date'];
+      const dur = +obj['Duration Min'] || 0;
+      if (!dateStr || !dur) return;
+      const date = new Date(dateStr);
+      if (isNaN(date)) return;
+      const day = date.getDay() || 7;
+      const monday = new Date(date);
+      monday.setDate(date.getDate() - day + 1);
+      const key = monday.toISOString().slice(0, 10);
+      weekMap[key] = (weekMap[key] || 0) + dur;
+    });
+    const weekKeys = Object.keys(weekMap).sort().slice(-6);
+    const weekLabels = weekKeys.map(k => fmtDate(k));
+    const weekData = weekKeys.map(k => Math.round(weekMap[k]));
+    const weekColors = weekData.map(v => v >= 100 ? '#00e67680' : v >= 50 ? '#ff985080' : '#ff525280');
+    const weekBorders = weekData.map(v => v >= 100 ? '#00e676' : v >= 50 ? '#ff9850' : '#ff5252');
+    makeChart('chartVolume', 'bar', weekLabels, [
+      { label: 'Minutes', data: weekData, backgroundColor: weekColors, borderColor: weekBorders, borderWidth: 1 },
     ]);
 
     // Types chart (doughnut — no scales)
@@ -1744,7 +1805,7 @@ async function loadDashboard() {
       const maxHR = a['Max HR'] || '—';
       const maxSpd = a['Max Speed Kmh'] ? a['Max Speed Kmh'] + ' km/h' : '—';
       return `<tr>
-        <td class="date">${date}</td>
+        <td class="date">${fmtDate(date)}</td>
         <td>${name}</td>
         <td style="font-size: 0.78rem; color: var(--text-dim);">${type}</td>
         <td>${dur}</td>
