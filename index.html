@@ -332,6 +332,37 @@ body {
   overflow: hidden;
 }
 .chart-card.full { grid-column: 1 / -1; }
+.pb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.pb-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.pb-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+.pb-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+  font-family: 'Anybody', sans-serif;
+  line-height: 1.1;
+}
+.pb-date {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
 .chart-wrap {
   position: relative;
   width: 100%;
@@ -794,6 +825,7 @@ body {
     <button data-tab="plan">9-Week Plan</button>
     <button data-tab="training">Training</button>
     <button data-tab="progress">Progress</button>
+    <button data-tab="history">History</button>
   </div>
 
   <!-- Coach's Report Section -->
@@ -871,7 +903,10 @@ body {
 
   <!-- Progress Section -->
   <div class="section" id="tab-progress">
-    <div class="section-title">Body Metrics</div>
+    <div class="section-title">Personal Bests</div>
+    <div class="pb-grid" id="pbGrid"></div>
+
+    <div class="section-title" style="margin-top: 32px;">Body Metrics</div>
     <div class="chart-grid">
       <div class="chart-card">
         <div class="chart-label">Sleep Quality</div>
@@ -931,6 +966,28 @@ body {
         <div class="chart-insight">Top set weight per arm (kg). Upper body pull.</div>
         <div class="chart-wrap" style="height: 180px;"><canvas id="chartRow"></canvas></div>
       </div>
+    </div>
+  </div>
+
+  <!-- History Section -->
+  <div class="section" id="tab-history">
+    <div class="section-title">All Workouts</div>
+    <div style="overflow-x: auto;">
+      <table class="workout-table" id="historyTable">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Workout</th>
+            <th>Type</th>
+            <th>Duration</th>
+            <th>Distance</th>
+            <th>Avg HR</th>
+            <th>Max HR</th>
+            <th>Max Speed</th>
+          </tr>
+        </thead>
+        <tbody id="historyTableBody"></tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -1590,6 +1647,113 @@ async function loadDashboard() {
     buildStrengthChart('chartRDL', ['Romanian Deadlift', 'RDL', 'Deadlift'], '#b388ff');
     buildStrengthChart('chartBench', ['Bench Press'], '#448aff');
     buildStrengthChart('chartRow', ['Dumbbell Row', 'Row'], '#f06292');
+
+    // Personal Bests
+    const allRunActivities = activityRows.slice(1).map(row => {
+      const obj = {};
+      activityHeaders.forEach((h, i) => obj[h] = row[i] || '');
+      return obj;
+    });
+    const runs = allRunActivities.filter(a => (a['Type'] || '').includes('running'));
+
+    function maxBy(arr, getter) {
+      let best = null;
+      arr.forEach(a => {
+        const v = getter(a);
+        if (v !== null && v !== undefined && !isNaN(v) && (best === null || v > best.value)) {
+          best = { value: v, item: a };
+        }
+      });
+      return best;
+    }
+    function strengthBest(matchers) {
+      const matched = strengthEntries.filter(s =>
+        matchers.some(m => s['Exercise'].toLowerCase().includes(m.toLowerCase()))
+      );
+      return maxBy(matched, s => +s['Weight (kg)'] || null);
+    }
+
+    const pbTopSpeed = maxBy(runs, a => +a['Max Speed Kmh'] || null);
+    const pbDistance = maxBy(runs, a => +a['Distance Km'] || null);
+    const pbDuration = maxBy(allRunActivities, a => +a['Duration Min'] || null);
+    const pbHRV = maxBy(health, a => +a['HRV Nightly Avg'] || null);
+    const pbSleep = maxBy(health, a => +a['Sleep Score'] || null);
+    const pbRHR = (function() {
+      let best = null;
+      health.forEach(a => {
+        const v = +a['Resting HR'] || null;
+        if (v && (best === null || v < best.value)) best = { value: v, item: a };
+      });
+      return best;
+    })();
+    const pbSquat = strengthBest(['Goblet Squat', 'Squat']);
+    const pbRDL = strengthBest(['Romanian Deadlift', 'RDL']);
+    const pbBench = strengthBest(['Bench Press']);
+    const pbRow = strengthBest(['Dumbbell Row', 'Row']);
+
+    function pbCard(label, best, fmt, dateKey = 'Date') {
+      if (!best) return `<div class="pb-card"><div class="pb-label">${label}</div><div class="pb-value">—</div></div>`;
+      const date = (best.item[dateKey] || '').slice(5).replace('-', '/');
+      return `
+        <div class="pb-card">
+          <div class="pb-label">${label}</div>
+          <div class="pb-value">${fmt(best.value)}</div>
+          <div class="pb-date">${date}</div>
+        </div>`;
+    }
+
+    document.getElementById('pbGrid').innerHTML = [
+      pbCard('Top Speed', pbTopSpeed, v => v.toFixed(1) + ' km/h'),
+      pbCard('Longest Run', pbDistance, v => v.toFixed(2) + ' km'),
+      pbCard('Longest Session', pbDuration, v => v.toFixed(0) + ' min'),
+      pbCard('Best HRV', pbHRV, v => v + ' ms'),
+      pbCard('Best Sleep Score', pbSleep, v => v),
+      pbCard('Lowest Resting HR', pbRHR, v => v + ' bpm'),
+      pbCard('Goblet Squat', pbSquat, v => v + ' kg'),
+      pbCard('Romanian Deadlift', pbRDL, v => v + ' kg'),
+      pbCard('Bench Press', pbBench, v => v + ' kg'),
+      pbCard('Dumbbell Row', pbRow, v => v + ' kg'),
+    ].join('');
+
+    // History tab: all workouts sorted newest first
+    const historySorted = [...allRunActivities, ...activityRows.slice(1).map(row => {
+      const obj = {};
+      activityHeaders.forEach((h, i) => obj[h] = row[i] || '');
+      return obj;
+    }).filter(a => !(a['Type'] || '').includes('running'))];
+    // dedupe by Date+Name
+    const seen = new Set();
+    const allActs = activityRows.slice(1).map(row => {
+      const obj = {};
+      activityHeaders.forEach((h, i) => obj[h] = row[i] || '');
+      return obj;
+    }).filter(a => {
+      const key = a['Date'] + '|' + a['Activity Name'];
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return a['Date'];
+    }).sort((a, b) => (b['Date'] || '').localeCompare(a['Date'] || ''));
+
+    document.getElementById('historyTableBody').innerHTML = allActs.map(a => {
+      const date = a['Date'] || '';
+      const name = a['Activity Name'] || '';
+      const type = (a['Type'] || '').replace(/_/g, ' ');
+      const dur = a['Duration Min'] ? a['Duration Min'] + ' min' : '—';
+      const dist = a['Distance Km'] ? a['Distance Km'] + ' km' : '—';
+      const avgHR = a['Avg HR'] || '—';
+      const maxHR = a['Max HR'] || '—';
+      const maxSpd = a['Max Speed Kmh'] ? a['Max Speed Kmh'] + ' km/h' : '—';
+      return `<tr>
+        <td class="date">${date}</td>
+        <td>${name}</td>
+        <td style="font-size: 0.78rem; color: var(--text-dim);">${type}</td>
+        <td>${dur}</td>
+        <td>${dist}</td>
+        <td>${avgHR}</td>
+        <td>${maxHR}</td>
+        <td>${maxSpd}</td>
+      </tr>`;
+    }).join('');
 
     // Hide loader
     document.getElementById('loader').classList.add('hidden');
