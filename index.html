@@ -823,6 +823,7 @@ body {
   <div class="nav" id="nav">
     <button class="active" data-tab="coach">Coach's Report</button>
     <button data-tab="plan">9-Week Plan</button>
+    <button data-tab="milestones">Milestones</button>
     <button data-tab="training">Training</button>
     <button data-tab="progress">Progress</button>
     <button data-tab="history">History</button>
@@ -969,6 +970,30 @@ body {
     </div>
   </div>
 
+  <!-- Milestones Section -->
+  <div class="section" id="tab-milestones">
+    <div class="section-title">Milestones &amp; Phase Gates</div>
+    <p style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 16px;">
+      Targets pulled from the 9-week periodisation plan. Status updates as data comes in. Goal: peak fitness by season opener <strong>6 Jul 26</strong>.
+    </p>
+    <div style="overflow-x: auto;">
+      <table class="workout-table" id="milestonesTable">
+        <thead>
+          <tr>
+            <th>Phase</th>
+            <th>Milestone</th>
+            <th>Target</th>
+            <th>Current</th>
+            <th>Status</th>
+            <th>Date</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody id="milestonesTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- History Section -->
   <div class="section" id="tab-history">
     <div class="section-title">All Workouts</div>
@@ -995,7 +1020,7 @@ body {
 <script>
 const SHEET_ID = '1E6Hq467pmleFvvDOQfRsgX2gKO2KdbP5I8OrnscT_qo';
 // Sheet GIDs: Dashboard=2131102463, Daily Health=0, Activities=1308062237
-const GIDS = { dashboard: 2131102463, health: 0, activities: 1308062237, coach: 166212380, strength: 969934520 };
+const GIDS = { dashboard: 2131102463, health: 0, activities: 1308062237, coach: 166212380, strength: 969934520, milestones: 1853057807 };
 
 async function fetchSheetCSV(gid) {
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
@@ -1240,12 +1265,13 @@ function renderPlan() {
 
 async function loadDashboard() {
   try {
-    const [dashRows, healthRows, activityRows, coachRows, strengthRows] = await Promise.all([
+    const [dashRows, healthRows, activityRows, coachRows, strengthRows, milestoneRows] = await Promise.all([
       fetchSheetCSV(GIDS.dashboard),
       fetchSheetCSV(GIDS.health),
       fetchSheetCSV(GIDS.activities),
       fetchSheetCSV(GIDS.coach),
       fetchSheetCSV(GIDS.strength),
+      fetchSheetCSV(GIDS.milestones),
     ]);
 
     // Parse coach data into key-value map
@@ -1816,6 +1842,31 @@ async function loadDashboard() {
         <td>${maxSpd}</td>
       </tr>`;
     }).join('');
+
+    // Milestones table
+    if (milestoneRows && milestoneRows.length > 1) {
+      const statusColor = (s) => {
+        const u = (s || '').toUpperCase();
+        if (u === 'HIT') return 'var(--accent)';
+        if (u === 'IN PROGRESS' || u === 'TBD') return 'var(--amber)';
+        if (u === 'MISS' || u === 'FAIL') return 'var(--red)';
+        return 'var(--text-muted)';
+      };
+      const tbody = document.getElementById('milestonesTableBody');
+      if (tbody) {
+        tbody.innerHTML = milestoneRows.slice(1).map(r => `
+          <tr>
+            <td class="date">${r[0] || ''}</td>
+            <td>${r[1] || ''}</td>
+            <td>${r[2] || ''}</td>
+            <td>${r[3] || ''}</td>
+            <td style="color: ${statusColor(r[4])}; font-weight: 600;">${r[4] || ''}</td>
+            <td class="date">${r[5] || ''}</td>
+            <td style="font-size: 0.78rem; color: var(--text-dim);">${r[6] || ''}</td>
+          </tr>
+        `).join('');
+      }
+    }
 
     // Hide loader
     document.getElementById('loader').classList.add('hidden');
