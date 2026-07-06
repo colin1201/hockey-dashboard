@@ -830,8 +830,6 @@ body {
   <!-- Tab Navigation -->
   <div class="nav" id="nav">
     <button class="active" data-tab="coach">Coach's Report</button>
-    <button data-tab="plan">9-Week Plan</button>
-    <button data-tab="milestones">Milestones</button>
     <button data-tab="training">Training</button>
     <button data-tab="progress">Progress</button>
     <button data-tab="history">History</button>
@@ -846,34 +844,6 @@ body {
     <div id="coachBlockers"></div>
     <div id="coachWeekly"></div>
     <div id="coachNextSteps"></div>
-  </div>
-
-  <!-- 9-Week Plan Section -->
-  <div class="section" id="tab-plan">
-    <div class="plan-header">
-      <div class="plan-title">9-WEEK PRE-SEASON PLAN</div>
-      <div class="plan-subtitle">Goal B: Be the fittest player on the pitch · Season starts <strong>6 July 2026</strong></div>
-      <div class="plan-progress-bar">
-        <div class="plan-progress-fill" id="planProgressFill"></div>
-      </div>
-      <div class="plan-progress-label" id="planProgressLabel"></div>
-    </div>
-    <div class="phase-timeline" id="phaseTimeline"></div>
-    <div class="plan-targets">
-      <h3>Targets by 6 July</h3>
-      <div class="targets-grid" id="targetsGrid"></div>
-    </div>
-    <div class="plan-rules">
-      <h3>Adaptive rules</h3>
-      <p>Plan adapts to your weekly availability. When sessions get squeezed, drop in this priority order:</p>
-      <ol class="priority-list">
-        <li><strong>Strength A</strong> (Lower + Plyo) — keep first</li>
-        <li><strong>Speed / Agility</strong> — keep second</li>
-        <li><strong>Strength B</strong> (Upper + Core)</li>
-        <li><strong>Hockey Conditioning</strong></li>
-        <li><strong>Aerobic + Stickwork</strong> — drop first</li>
-      </ol>
-    </div>
   </div>
 
   <!-- Training Section -->
@@ -979,30 +949,6 @@ body {
     </div>
   </div>
 
-  <!-- Milestones Section -->
-  <div class="section" id="tab-milestones">
-    <div class="section-title">Milestones &amp; Phase Gates</div>
-    <p style="color: var(--text-dim); font-size: 0.85rem; margin-bottom: 16px;">
-      Targets pulled from the 9-week periodisation plan. Status updates as data comes in. Goal: peak fitness by season opener <strong>6 Jul 26</strong>.
-    </p>
-    <div style="overflow-x: auto;">
-      <table class="workout-table" id="milestonesTable">
-        <thead>
-          <tr>
-            <th>Phase</th>
-            <th>Milestone</th>
-            <th>Target</th>
-            <th>Current</th>
-            <th>Status</th>
-            <th>Date</th>
-            <th>Notes</th>
-          </tr>
-        </thead>
-        <tbody id="milestonesTableBody"></tbody>
-      </table>
-    </div>
-  </div>
-
   <!-- History Section -->
   <div class="section" id="tab-history">
     <div class="section-title">All Workouts</div>
@@ -1029,7 +975,7 @@ body {
 <script>
 const SHEET_ID = '1E6Hq467pmleFvvDOQfRsgX2gKO2KdbP5I8OrnscT_qo';
 // Sheet GIDs: Dashboard=2131102463, Daily Health=0, Activities=1308062237
-const GIDS = { dashboard: 2131102463, health: 0, activities: 1308062237, coach: 166212380, strength: 969934520, milestones: 1853057807 };
+const GIDS = { dashboard: 2131102463, health: 0, activities: 1308062237, coach: 166212380, strength: 969934520 };
 
 // =============================================================================
 // Dashboard tab row contract — COUPLED with garmin_sheets_push.py (DASHBOARD_ROWS)
@@ -1169,137 +1115,14 @@ function getTypeClass(type) {
   return 'type-run';
 }
 
-// 9-Week Plan data + rendering
-const PLAN_START = new Date('2026-05-04');
-const SEASON_START = new Date('2026-07-06');
-
-const PHASES = [
-  {
-    num: 'Phase 1',
-    name: 'Re-entry + Movement',
-    weeks: 'W1-2',
-    dates: 'May 4 — May 17',
-    startDay: 0, endDay: 13,
-    goal: 'HRV back to 55+ baseline. Restart 5-day rhythm. Conservative weights. Build daily mobility habit.',
-    mix: ['1-2 strength', '1 speed (acceleration only)', '1 aerobic + stickwork', 'Daily mobility'],
-    checkpoint: 'End of W2: HRV 55+, RHR 47, mobility habit started',
-  },
-  {
-    num: 'Phase 2',
-    name: 'Build',
-    weeks: 'W3-4',
-    dates: 'May 18 — May 31',
-    startDay: 14, endDay: 27,
-    goal: 'Establish strength foundation. Reintroduce max-effort speed. First baseline test.',
-    mix: ['2 strength', '1-2 speed (max velocity)', '1 conditioning (light)', 'Daily mobility'],
-    checkpoint: 'W4 baseline: 6x40m repeat sprint test. Goblet 12-14kg. Top sprint 23+ km/h.',
-  },
-  {
-    num: 'Phase 3',
-    name: 'Hockey-Specific',
-    weeks: 'W5-6',
-    dates: 'Jun 1 — Jun 14',
-    startDay: 28, endDay: 41,
-    goal: 'Hardest phase. Hockey-pattern conditioning. Stickwork under moderate fatigue. Reactive agility.',
-    mix: ['2 strength (power)', '2 speed (game-pattern)', '1 conditioning', 'Daily mobility'],
-    checkpoint: 'End of W6 = mini-deload (3 days, 50% volume). Top sprint 25+ km/h. Fade <8%.',
-  },
-  {
-    num: 'Phase 4',
-    name: 'Match-Quality Peak',
-    weeks: 'W7-8',
-    dates: 'Jun 15 — Jun 28',
-    startDay: 42, endDay: 55,
-    goal: 'Highest training load. Match-quality intensity. Stickwork at HR 160+. Decision-making.',
-    mix: ['2 strength (maintenance)', '2 speed (game sim)', '1 conditioning', 'Daily mobility'],
-    checkpoint: 'W7 mid-test: improvement vs W4 baseline. Top sprint 26-28 km/h. Fade <5%.',
-  },
-  {
-    num: 'Phase 5',
-    name: 'Taper',
-    weeks: 'W9',
-    dates: 'Jun 29 — Jul 5',
-    startDay: 56, endDay: 62,
-    goal: 'Reduce volume 40-50%. Maintain intensity. Body absorbs work. Arrive sharp on July 6.',
-    mix: ['1 light strength', '2 short speed', 'Daily short stickwork', 'Daily mobility'],
-    checkpoint: 'Final test mid-week. Peak performance. Season starts 6 July.',
-  },
-];
-
-const PLAN_TARGETS = [
-  { label: 'Top sprint speed', value: '26-28 km/h' },
-  { label: 'Sprint fade (6 sprints)', value: '<5%' },
-  { label: 'HR recovery in 60s', value: '30+ bpm drop' },
-  { label: 'Resting HR', value: '45-47' },
-  { label: 'HRV (BALANCED)', value: '55-65' },
-  { label: 'Body weight', value: '67-68 kg (-2-3kg)' },
-  { label: 'Goblet squat', value: '14-16 kg x 3x10' },
-  { label: 'RDL per hand', value: '10-12 kg x 3x10' },
-  { label: 'Stickwork at HR 160+', value: 'Clean first touch' },
-  { label: 'Q3-Q4 work rate', value: 'Sustained 70 min' },
-];
-
-function renderPlan() {
-  const today = new Date();
-  const dayOffset = Math.floor((today - PLAN_START) / (1000 * 60 * 60 * 24));
-  const totalDays = 63;
-  const progressPct = Math.max(0, Math.min(100, (dayOffset / totalDays) * 100));
-
-  // Progress bar
-  const progressFill = document.getElementById('planProgressFill');
-  const progressLabel = document.getElementById('planProgressLabel');
-  if (progressFill) {
-    progressFill.style.width = progressPct + '%';
-    const weekNum = Math.max(1, Math.min(9, Math.floor(dayOffset / 7) + 1));
-    const daysToSeason = Math.max(0, Math.ceil((SEASON_START - today) / (1000 * 60 * 60 * 24)));
-    progressLabel.textContent = `Week ${weekNum} of 9 · ${daysToSeason} days to season`;
-  }
-
-  // Phase cards
-  const timeline = document.getElementById('phaseTimeline');
-  if (timeline) {
-    timeline.innerHTML = PHASES.map(p => {
-      let status = 'upcoming';
-      if (dayOffset > p.endDay) status = 'done';
-      else if (dayOffset >= p.startDay) status = 'current';
-
-      return `<div class="phase-card ${status}">
-        <div class="phase-row">
-          <span class="phase-num">${p.num}</span>
-          <span class="phase-name">${p.name}</span>
-          <span class="phase-weeks">${p.weeks} · ${p.dates}</span>
-          ${status === 'current' ? '<span class="phase-current-tag">NOW</span>' : ''}
-        </div>
-        <div class="phase-goal">${p.goal}</div>
-        <div class="phase-mix">
-          ${p.mix.map(m => `<span class="phase-pill">${m}</span>`).join('')}
-        </div>
-        <div class="phase-checkpoint"><strong>Checkpoint:</strong> ${p.checkpoint}</div>
-      </div>`;
-    }).join('');
-  }
-
-  // Targets grid
-  const targetsGrid = document.getElementById('targetsGrid');
-  if (targetsGrid) {
-    targetsGrid.innerHTML = PLAN_TARGETS.map(t => `
-      <div class="target-row">
-        <span class="target-label">${t.label}</span>
-        <span class="target-value">${t.value}</span>
-      </div>
-    `).join('');
-  }
-}
-
 async function loadDashboard() {
   try {
-    const [dashRows, healthRows, activityRows, coachRows, strengthRows, milestoneRows] = await Promise.all([
+    const [dashRows, healthRows, activityRows, coachRows, strengthRows] = await Promise.all([
       fetchSheetCSV(GIDS.dashboard),
       fetchSheetCSV(GIDS.health),
       fetchSheetCSV(GIDS.activities),
       fetchSheetCSV(GIDS.coach),
       fetchSheetCSV(GIDS.strength),
-      fetchSheetCSV(GIDS.milestones),
     ]);
 
     // Parse coach data into key-value map
@@ -1370,9 +1193,6 @@ async function loadDashboard() {
         </div>
       `).join('');
     }
-
-    // 9-Week Plan rendering
-    renderPlan();
 
     // Snapshots
     const snapKeys = ['sleep', 'recovery', 'fitness', 'speed', 'strength', 'injury'];
@@ -1870,31 +1690,6 @@ async function loadDashboard() {
         <td>${maxSpd}</td>
       </tr>`;
     }).join('');
-
-    // Milestones table
-    if (milestoneRows && milestoneRows.length > 1) {
-      const statusColor = (s) => {
-        const u = (s || '').toUpperCase();
-        if (u === 'HIT') return 'var(--accent)';
-        if (u === 'IN PROGRESS' || u === 'TBD') return 'var(--amber)';
-        if (u === 'MISS' || u === 'FAIL') return 'var(--red)';
-        return 'var(--text-muted)';
-      };
-      const tbody = document.getElementById('milestonesTableBody');
-      if (tbody) {
-        tbody.innerHTML = milestoneRows.slice(1).map(r => `
-          <tr>
-            <td class="date">${r[0] || ''}</td>
-            <td>${r[1] || ''}</td>
-            <td>${r[2] || ''}</td>
-            <td>${r[3] || ''}</td>
-            <td style="color: ${statusColor(r[4])}; font-weight: 600;">${r[4] || ''}</td>
-            <td class="date">${r[5] || ''}</td>
-            <td style="font-size: 0.78rem; color: var(--text-dim);">${r[6] || ''}</td>
-          </tr>
-        `).join('');
-      }
-    }
 
     // Hide loader
     document.getElementById('loader').classList.add('hidden');
