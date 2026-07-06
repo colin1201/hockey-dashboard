@@ -1184,6 +1184,25 @@ async function loadDashboard() {
           trendText: '' },
       ];
 
+      // Distance tile: last 7 days + full window total, from Activities tab
+      {
+        const distHeaders = activityRows[0] || [];
+        const dIdx = distHeaders.indexOf('Distance Km');
+        const dateIdx = distHeaders.indexOf('Date');
+        if (dIdx >= 0 && dateIdx >= 0) {
+          const now = new Date();
+          const weekAgo = new Date(now.getTime() - 7*24*3600*1000);
+          let d7 = 0, dAll = 0;
+          activityRows.slice(1).forEach(r => {
+            const km = parseFloat(r[dIdx]) || 0;
+            dAll += km;
+            if (r[dateIdx] && new Date(r[dateIdx]) >= weekAgo) d7 += km;
+          });
+          metrics.push({ label: 'Distance 7d', value: d7.toFixed(1), unit: 'km',
+            trend: 'neutral', trendText: `60d total ${dAll.toFixed(0)} km` });
+        }
+      }
+
       const strip = document.getElementById('metricsStrip');
       strip.innerHTML = metrics.map(m => `
         <div class="metric-card">
