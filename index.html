@@ -199,6 +199,14 @@ body {
   color: var(--accent);
   border-bottom-color: var(--accent);
 }
+.nav a.nav-link {
+  color: var(--text-muted); font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem; font-weight: 500; padding: 10px 16px;
+  white-space: nowrap; text-decoration: none;
+  border-bottom: 2px solid transparent; margin-left: auto;
+  transition: color 0.2s;
+}
+.nav a.nav-link:hover { color: var(--accent); }
 
 /* Sections */
 .section { display: none; animation: fadeIn 0.3s ease; }
@@ -827,6 +835,7 @@ body {
     <button data-tab="training">Training</button>
     <button data-tab="progress">Progress</button>
     <button data-tab="history">History</button>
+    <a class="nav-link" href="games/game1.html">🏑 Game 1 Report</a>
   </div>
 
   <!-- Coach's Report Section -->
@@ -1021,6 +1030,25 @@ body {
 const SHEET_ID = '1E6Hq467pmleFvvDOQfRsgX2gKO2KdbP5I8OrnscT_qo';
 // Sheet GIDs: Dashboard=2131102463, Daily Health=0, Activities=1308062237
 const GIDS = { dashboard: 2131102463, health: 0, activities: 1308062237, coach: 166212380, strength: 969934520, milestones: 1853057807 };
+
+// =============================================================================
+// Dashboard tab row contract — COUPLED with garmin_sheets_push.py (DASHBOARD_ROWS)
+// Update BOTH files when changing any row position. Producer (Python) writes
+// these rows; consumer (this HTML) reads them. Drift = mislabeled UI sections.
+//
+// Row 2  -> lastUpdated text
+// Row 5  -> readiness call (HARD/MODERATE/LIGHT/REST — CSS class derived)
+// Row 6  -> readiness reason text
+// Row 9, 10  -> "This Week" section
+// Row 15, 16  -> Month in Review > Sleep
+// Row 19, 20  -> Month in Review > Recovery
+// Row 23, 24  -> Month in Review > Training
+// Rows 27-29  -> Blockers (filter empty, hidden if all empty)
+// Rows 33/34, 36/37, 39/40, 42/43  -> Weekly Breakdown (4 label/body pairs)
+// Rows 46-48  -> Next Steps (filter empty, hidden if all empty)
+// Rows 54-64  -> Workout log table (needs 4+ cols per row)
+// Rows 67, 70, 73, 76  -> Analysis sections (filter empty, hidden if all empty)
+// =============================================================================
 
 async function fetchSheetCSV(gid) {
   const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
