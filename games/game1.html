@@ -28,6 +28,10 @@
     padding:6px 8px; border-bottom:1px solid var(--tile-border); }
   td{ padding:7px 8px; border-bottom:1px solid var(--tile-border); }
   tr:last-child td{ border-bottom:none; }
+  .tscroll{ overflow-x:auto; }
+  .tscroll table{ min-width:470px; }
+  .qnote{ font-size:12.5px; color:var(--ink-3); margin-top:8px; line-height:1.5; }
+  .qnote.fade{ font-size:13.5px; color:var(--ink); }
   .zbar{ display:flex; height:16px; border-radius:8px; overflow:hidden; gap:2px; margin-top:6px; }
   .zbar div{ background:var(--accent); min-width:2px; }
   .zl{ display:flex; gap:14px; font-size:12px; color:var(--ink-2); margin-top:8px; flex-wrap:wrap;
@@ -72,8 +76,10 @@
   </div>
 
   <div class="board">
-    <h2>By quarter (elapsed time — includes any bench/break minutes)</h2>
-    <table><tr><th></th><th>Distance</th><th>Avg HR</th><th>Top speed</th></tr><tr><td>Q1</td><td>1302m</td><td>156</td><td>22.2 km/h</td></tr><tr><td>Q2</td><td>419m</td><td>132</td><td>24.9 km/h</td></tr><tr><td>Q3</td><td>1075m</td><td>150</td><td>24.1 km/h</td></tr><tr><td>Q4</td><td>1122m</td><td>158</td><td>26.9 km/h</td></tr></table>
+    <h2>By quarter (elapsed time)</h2>
+    <div class="tscroll"><table><tr><th></th><th>On pitch</th><th>Distance</th><th>Fast run</th><th>Sprints</th><th>Top speed</th><th>Avg HR</th></tr><tr><td>Q1</td><td>20 min</td><td>1302m</td><td>114m</td><td>4</td><td>22.2 km/h</td><td>156</td></tr><tr><td>Q2</td><td>6 min</td><td>419m</td><td>62m</td><td>1</td><td>24.9 km/h</td><td>132</td></tr><tr><td>Q3</td><td>18 min</td><td>1075m</td><td>58m</td><td>1</td><td>24.1 km/h</td><td>150</td></tr><tr><td>Q4</td><td>20 min</td><td>1122m</td><td>129m</td><td>5</td><td>26.9 km/h</td><td>158</td></tr></table></div>
+    <div class="qnote fade">Late-game read — Q4 vs Q1, per minute on pitch: total distance −14%, fast running +13%.</div>
+    <div class="qnote">On pitch = minutes excluding breaks and bench time (standing still 60s+). Fast run = metres covered above 15 km/h &mdash; the number to watch for late-game fade. Sprints = bursts &ge; 20 km/h.</div>
   </div>
 
   <div class="board">
