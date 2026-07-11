@@ -1098,6 +1098,59 @@ function makeChart(id, type, labels, datasets, opts = {}) {
   });
 }
 
+// Classify an activity row into a session-type bucket for the doughnut.
+function classifySessionType(name, type) {
+  const s = ((name || '') + ' ' + (type || '')).toLowerCase();
+  if (s.includes('strength') || s.includes('gym') || s.includes('weight')) return 'Strength';
+  const hasStick = s.includes('stick');
+  const hasSpeed = s.includes('speed') || s.includes('sprint') || s.includes('agility');
+  if (hasStick && hasSpeed) return 'Speed+Stick';
+  if (hasStick) return 'Speed+Stick';
+  if (hasSpeed) return 'Speed';
+  return 'Run';
+}
+
+// Sprint Speed Trend — top speed per running session, computed from Activities rows.
+// Mirrors the Performance top-speed chart (same source, same GPS-junk filter).
+function buildSpeedTrend(activityRows) {
+  const headers = activityRows[0] || [];
+  const idx = h => headers.indexOf(h);
+  const runs = activityRows.slice(1).map(row => {
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = row[i] || '');
+    return obj;
+  }).filter(a => (a['Type'] || '').includes('running') && a['Date'])
+    .sort((a, b) => (a['Date'] || '').localeCompare(b['Date'] || ''));
+  const dates = [];
+  const topSpeeds = [];
+  runs.forEach(a => {
+    const spd = parseFloat(a['Max Speed Kmh']);
+    if (!isNaN(spd) && spd > 4) {  // >4 filters GPS junk
+      const parts = (a['Date'] || '').split('-');
+      dates.push(parts[1] + '/' + parts[2]);
+      topSpeeds.push(spd);
+    }
+  });
+  return { dates, topSpeeds };
+}
+
+// Session Types breakdown — counts per bucket for the CURRENT calendar month.
+function buildSessionTypes(activityRows) {
+  const headers = activityRows[0] || [];
+  const now = new Date();
+  const ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  const counts = {};
+  activityRows.slice(1).forEach(row => {
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = row[i] || '');
+    const date = obj['Date'] || '';
+    if (!date.startsWith(ym)) return;
+    const bucket = classifySessionType(obj['Activity Name'], obj['Type']);
+    counts[bucket] = (counts[bucket] || 0) + 1;
+  });
+  return counts;
+}
+
 // Tab navigation
 document.getElementById('nav').addEventListener('click', e => {
   if (e.target.tagName !== 'BUTTON') return;
@@ -1161,7 +1214,9 @@ async function loadDashboard() {
     // Key metrics (latest day with data)
     const latest = [...health].reverse().find(d => d['HRV Nightly Avg'] || d['Sleep Score']);
     if (latest) {
-      const prevWeek = health.slice(0, Math.max(0, health.length - 7));
+      // Baseline = the PREVIOUS 7-day window (days 8-14 back), not all-history.
+      // Comparing last night against every prior day made "avg" misleading.
+      const prevWeek = health.slice(Math.max(0, health.length - 14), Math.max(0, health.length - 7));
       const prevHRV = prevWeek.filter(d => d['HRV Nightly Avg']).map(d => +d['HRV Nightly Avg']);
       const avgPrevHRV = prevHRV.length ? (prevHRV.reduce((a,b) => a+b, 0) / prevHRV.length).toFixed(0) : null;
 
@@ -1462,13 +1517,13 @@ async function loadDashboard() {
       </div>
     `).join('');
 
-    // Speed chart
-    const speedDates = ['Mar 10', 'Mar 12', 'Mar 17', 'Mar 20', 'Mar 27', 'Mar 31'];
-    const topSpeeds = [25.2, 25.2, 28.8, 24.3, 20.6, 22.2];
-    const avgSpeeds = [20.6, 21.4, 20.7, 20.6, 15.9, 18.5];
-    makeChart('chartSpeed', 'line', speedDates, [
-      { label: 'Top Speed', data: topSpeeds, borderColor: '#ff5252', backgroundColor: '#ff525230', fill: true },
-      { label: 'Avg Sprint', data: avgSpeeds, borderColor: '#448aff', backgroundColor: '#448aff30', fill: true },
+    // Speed chart — computed from Activities (top speed per running session),
+    // not hardcoded. Same source + pattern as the Performance top-speed chart below.
+    const speedTrend = buildSpeedTrend(activityRows);
+    const speedTarget = speedTrend.dates.map(() => 25);
+    makeChart('chartSpeed', 'line', speedTrend.dates, [
+      { label: 'Top Speed', data: speedTrend.topSpeeds, borderColor: '#ff5252', backgroundColor: '#ff525230', fill: true, tension: 0.2 },
+      { label: 'Target 25+ km/h', data: speedTarget, borderColor: '#00e676', borderDash: [6, 4], borderWidth: 1.5, pointRadius: 0, fill: false },
     ]);
 
     // Volume chart — computed from Activities, last 6 weeks, labeled by week-start date
@@ -1497,17 +1552,24 @@ async function loadDashboard() {
       { label: 'Minutes', data: weekData, backgroundColor: weekColors, borderColor: weekBorders, borderWidth: 1 },
     ]);
 
-    // Types chart (doughnut — no scales)
-    const types = { Speed: 6, 'Speed+Stick': 2, Run: 2, Strength: 1 };
+    // Types chart (doughnut — no scales) — derived from Activities for the current month.
+    const types = buildSessionTypes(activityRows);
     const typesCtx = document.getElementById('chartTypes');
     if (typesCtx) {
+      const typeColorMap = {
+        Speed: '#00e676', 'Speed+Stick': '#64ffda', Stick: '#64ffda',
+        Run: '#448aff', Strength: '#b388ff', Other: '#8b919e',
+      };
+      const typeLabels = Object.keys(types).filter(k => types[k] > 0);
+      const typeData = typeLabels.map(k => types[k]);
+      const typeColors = typeLabels.map(k => typeColorMap[k] || '#8b919e');
       new Chart(typesCtx, {
         type: 'doughnut',
         data: {
-          labels: Object.keys(types),
-          datasets: [{ data: Object.values(types),
-            backgroundColor: ['#00e67680', '#64ffda80', '#448aff80', '#b388ff80'],
-            borderColor: ['#00e676', '#64ffda', '#448aff', '#b388ff'], borderWidth: 1 }],
+          labels: typeLabels,
+          datasets: [{ data: typeData,
+            backgroundColor: typeColors.map(c => c + '80'),
+            borderColor: typeColors, borderWidth: 1 }],
         },
         options: {
           responsive: true, maintainAspectRatio: false,
