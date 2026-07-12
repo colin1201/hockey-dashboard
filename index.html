@@ -997,8 +997,11 @@ const GIDS = { dashboard: 2131102463, health: 0, activities: 1308062237, coach: 
 // =============================================================================
 
 async function fetchSheetCSV(gid) {
-  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}`;
+  // &_=timestamp busts mobile browser caches — without it, phones keep
+  // serving yesterday's CSV export after a sync.
+  const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${gid}&_=${Date.now()}`;
   const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`Sheet fetch failed (gid ${gid}): HTTP ${resp.status}`);
   const text = await resp.text();
   return parseCSV(text);
 }
